@@ -52,6 +52,6 @@ export const banner = chalk.yellow`
 
 
 
-            ${chalk.yellow('KITE AI Register - BOT')}                
+            ${chalk.yellow('KITE AI FAUCET - BOT')}                
 
 📢  ${chalk.yellow('https://t.me/bamarairdrop')}`;
