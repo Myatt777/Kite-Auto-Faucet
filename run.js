@@ -9,6 +9,7 @@ import { CapMonsterCloudClientFactory, ClientOptions, RecaptchaV2ProxylessReques
 const clientKey = fs.readFileSync('key.txt', 'utf-8').trim();
 const cmcClient = CapMonsterCloudClientFactory.Create(new ClientOptions({ clientKey }));
 
+
 let wallets = fs.readFileSync('wallets.txt', 'utf-8').split('\n').filter(Boolean);
 const proxies = fs.readFileSync('proxy.txt', 'utf-8').split('\n').filter(Boolean);
 
@@ -28,12 +29,14 @@ const headers = {
   'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
 };
 
+
 function getProxyAgent(proxy) {
   if (!proxy.startsWith('http')) {
     proxy = `http://${proxy}`;
   }
   return new HttpsProxyAgent(proxy);
 }
+
 
 async function solveCaptcha() {
   const recaptchaV2ProxylessRequest = new RecaptchaV2ProxylessRequest({
@@ -50,21 +53,19 @@ async function solveCaptcha() {
 
 
 async function sendRequests() {
+  console.log(banner);
 
-console.log(banner);
-
-  
   let successAddresses = [];
 
   for (let i = 0; i < wallets.length; i++) {
     const address = wallets[i];
     let retryCount = 0;
-    const maxRetries = 3;
+    const maxRetries = 5;
 
     console.log(chalk.yellow(`🚀 Running for address: ${address}`));
 
     while (retryCount < maxRetries) {
-      let proxy = ''; 
+      let proxy = ''; // Define proxy before using it
 
       try {
         proxy = proxies[retryCount % proxies.length];
@@ -88,16 +89,22 @@ console.log(banner);
 
         console.log(chalk.green(`✅ Success for address ${address}:`), chalk.cyan(JSON.stringify(response.data, null, 2)));
 
-        successAddresses.push(address); 
-        break; 
+        successAddresses.push(address); // Store successful addresses
+        break; // Stop retrying if successful
       } catch (error) {
         retryCount++;
-        console.error(chalk.red(`❌ Error for ${address} (Attempt ${retryCount}) using proxy ${proxy || 'Unknown Proxy'}:`), 
-                      chalk.red(error.response ? JSON.stringify(error.response.data, null, 2) : error.message));
+
+        // Check for Too Many Requests (429 Error)
+        if (error.response && error.response.status === 429) {
+          console.log(chalk.red(`🚨 429 Too Many Requests - Switching Proxy...`));
+        } else {
+          console.error(chalk.red(`❌ Error for ${address} (Attempt ${retryCount}) using proxy ${proxy || 'Unknown Proxy'}:`), 
+                        chalk.red(error.response ? JSON.stringify(error.response.data, null, 2) : error.message));
+        }
 
         if (retryCount < maxRetries) {
-          console.log(chalk.yellow(`🔄 Retrying in 5 minutes...`));
-          await new Promise((resolve) => setTimeout(resolve, 5 * 60 * 1000));
+          console.log(chalk.yellow(`🔄 Retrying with new proxy in 1 minute...`));
+          await new Promise((resolve) => setTimeout(resolve, 1 * 60 * 1000));
         } else {
           console.error(chalk.red(`⛔ Max retries reached for ${address}. Moving on.`));
         }
@@ -115,5 +122,6 @@ console.log(banner);
     console.log(chalk.green('📜 Successfully saved completed addresses! 🎉'));
   }
 }
+
 
 sendRequests();
