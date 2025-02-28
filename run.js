@@ -1,18 +1,23 @@
 import axios from 'axios';
 import fs from 'fs';
-import { banner } from './banner.js';
 import chalk from 'chalk';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { CapMonsterCloudClientFactory, ClientOptions, RecaptchaV2ProxylessRequest } from '@zennolab_com/capmonstercloud-client';
 
-console.log(banner);
+
+const clientKey = fs.readFileSync('key.txt', 'utf-8').trim();
+if (!clientKey) {
+  console.error(chalk.red('❌ Client Key is missing in key.txt'));
+  process.exit(1);
+}
 
 
-const cmcClient = CapMonsterCloudClientFactory.Create(new ClientOptions({ clientKey: '512022458d2ce1dd49909e55ee95e4cc' }));
+const cmcClient = CapMonsterCloudClientFactory.Create(new ClientOptions({ clientKey }));
 
 
-let wallets = fs.readFileSync('wallets.txt', 'utf-8').split('\n').filter(Boolean);
-const proxies = fs.readFileSync('proxy.txt', 'utf-8').split('\n').filter(Boolean);
+let wallets = fs.readFileSync('wallets.txt', 'utf-8').split('\n').map(addr => addr.trim()).filter(Boolean);
+const proxies = fs.readFileSync('proxy.txt', 'utf-8').split('\n').map(proxy => proxy.trim()).filter(Boolean);
+
 
 const targetUrl = 'https://faucet.gokite.ai/api/sendToken';
 
@@ -108,11 +113,27 @@ async function sendRequests() {
 
   
   wallets = wallets.filter(addr => !successAddresses.includes(addr));
+
+  console.log(chalk.yellow(`📜 Remaining Wallets: \n${wallets.join('\n')}`)); // Debugging
+
   fs.writeFileSync('wallets.txt', wallets.join('\n'), 'utf-8');
 
+  console.log(chalk.green(`✅ Successfully removed completed addresses from wallets.txt`)); // Debugging
+
+
+  if (successAddresses.length > 0) {
+    const filePath = 'success-address.txt';
+    
+    
+    let fileContent = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+
   
-  fs.appendFileSync('success-address.txt', successAddresses.join('\n') + '\n', 'utf-8');
-  console.log(chalk.green('📜 Successfully saved completed addresses! 🎉'));
+    fs.appendFileSync(filePath, (fileContent.trim() ? '\n' : '') + successAddresses.join('\n') + '\n', 'utf-8');
+
+    console.log(chalk.green(`🎉 Successfully saved completed addresses to success-address.txt`));
+  } else {
+    console.log(chalk.yellow(`⚠️ No successful addresses to save.`));
+  }
 }
 
 // Run function
