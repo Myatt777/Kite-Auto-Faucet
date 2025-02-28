@@ -5,7 +5,6 @@ import chalk from 'chalk';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { CapMonsterCloudClientFactory, ClientOptions, RecaptchaV2ProxylessRequest } from '@zennolab_com/capmonstercloud-client';
 
-console.log(banner);
 
 const clientKey = fs.readFileSync('key.txt', 'utf-8').trim();
 if (!clientKey) {
@@ -64,6 +63,10 @@ async function solveCaptcha() {
 
 
 async function sendRequests() {
+
+console.log(banner);
+
+  
   let successAddresses = [];
 
   for (let i = 0; i < wallets.length; i++) {
