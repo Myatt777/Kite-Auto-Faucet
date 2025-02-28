@@ -6,17 +6,18 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import { CapMonsterCloudClientFactory, ClientOptions, RecaptchaV2ProxylessRequest } from '@zennolab_com/capmonstercloud-client';
 
 
+// ✅ CapMonster API Key ကို `key.txt` မှ ဖတ်မယ်
 const clientKey = fs.readFileSync('key.txt', 'utf-8').trim();
 const cmcClient = CapMonsterCloudClientFactory.Create(new ClientOptions({ clientKey }));
 
-
+// ✅ Read wallets & proxies
 let wallets = fs.readFileSync('wallets.txt', 'utf-8').split('\n').filter(Boolean);
 const proxies = fs.readFileSync('proxy.txt', 'utf-8').split('\n').filter(Boolean);
 
-
+// ✅ Target URL
 const targetUrl = 'https://faucet.gokite.ai/api/sendToken';
 
-
+// ✅ Headers
 const headers = {
   'authority': 'faucet.gokite.ai',
   'accept': 'application/json, text/plain, */*',
@@ -29,7 +30,7 @@ const headers = {
   'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
 };
 
-
+// ✅ Proxy Selection
 function getProxyAgent(proxy) {
   if (!proxy.startsWith('http')) {
     proxy = `http://${proxy}`;
@@ -37,7 +38,7 @@ function getProxyAgent(proxy) {
   return new HttpsProxyAgent(proxy);
 }
 
-
+// ✅ Solve reCAPTCHA v2
 async function solveCaptcha() {
   const recaptchaV2ProxylessRequest = new RecaptchaV2ProxylessRequest({
     websiteURL: 'https://faucet.gokite.ai',
@@ -51,7 +52,7 @@ async function solveCaptcha() {
   return result.solution.gRecaptchaResponse;
 }
 
-
+// ✅ Send Requests
 async function sendRequests() {
   console.log(banner);
 
@@ -65,10 +66,9 @@ async function sendRequests() {
     console.log(chalk.yellow(`🚀 Running for address: ${address}`));
 
     while (retryCount < maxRetries) {
-      let proxy = ''; // Define proxy before using it
+      let proxy = proxies[retryCount % proxies.length];
 
       try {
-        proxy = proxies[retryCount % proxies.length];
         const proxyAgent = getProxyAgent(proxy);
         console.log(chalk.blue(`🌍 Using proxy: ${proxy}`));
 
@@ -89,22 +89,21 @@ async function sendRequests() {
 
         console.log(chalk.green(`✅ Success for address ${address}:`), chalk.cyan(JSON.stringify(response.data, null, 2)));
 
-        successAddresses.push(address); // Store successful addresses
-        break; // Stop retrying if successful
+        successAddresses.push(address);
+        break;
       } catch (error) {
         retryCount++;
 
-        // Check for Too Many Requests (429 Error)
         if (error.response && error.response.status === 429) {
           console.log(chalk.red(`🚨 429 Too Many Requests - Switching Proxy...`));
         } else {
-          console.error(chalk.red(`❌ Error for ${address} (Attempt ${retryCount}) using proxy ${proxy || 'Unknown Proxy'}:`), 
-                        chalk.red(error.response ? JSON.stringify(error.response.data, null, 2) : error.message));
+          console.error(chalk.red(`❌ Error for ${address} (Attempt ${retryCount}) using proxy ${proxy}:`), 
+                        error.response ? JSON.stringify(error.response.data, null, 2) : error.message);
         }
 
         if (retryCount < maxRetries) {
-          console.log(chalk.yellow(`🔄 Retrying with new proxy in 1 minute...`));
-          await new Promise((resolve) => setTimeout(resolve, 1 * 60 * 1000));
+          console.log(chalk.yellow(`🔄 Retrying in 1 minute...`));
+          await new Promise((resolve) => setTimeout(resolve, 60 * 1000));
         } else {
           console.error(chalk.red(`⛔ Max retries reached for ${address}. Moving on.`));
         }
@@ -112,16 +111,16 @@ async function sendRequests() {
     }
   }
 
-  
+  // ✅ Remove success addresses from wallets.txt
   wallets = wallets.filter(addr => !successAddresses.includes(addr));
   fs.writeFileSync('wallets.txt', wallets.join('\n'), 'utf-8');
 
-  
+  // ✅ Save success addresses to success-address.txt
   if (successAddresses.length > 0) {
     fs.appendFileSync('success-address.txt', successAddresses.join('\n') + '\n', 'utf-8');
     console.log(chalk.green('📜 Successfully saved completed addresses! 🎉'));
   }
 }
 
-
+// ✅ Run function
 sendRequests();
