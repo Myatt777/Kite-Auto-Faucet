@@ -1,9 +1,11 @@
 import axios from 'axios';
 import fs from 'fs';
+import { banner } from './banner.js';
 import chalk from 'chalk';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { CapMonsterCloudClientFactory, ClientOptions, RecaptchaV2ProxylessRequest } from '@zennolab_com/capmonstercloud-client';
 
+console.log(banner);
 
 const clientKey = fs.readFileSync('key.txt', 'utf-8').trim();
 if (!clientKey) {
