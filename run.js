@@ -7,17 +7,10 @@ import { CapMonsterCloudClientFactory, ClientOptions, RecaptchaV2ProxylessReques
 
 
 const clientKey = fs.readFileSync('key.txt', 'utf-8').trim();
-if (!clientKey) {
-  console.error(chalk.red('❌ Client Key is missing in key.txt'));
-  process.exit(1);
-}
-
-
 const cmcClient = CapMonsterCloudClientFactory.Create(new ClientOptions({ clientKey }));
 
-
-let wallets = fs.readFileSync('wallets.txt', 'utf-8').split('\n').map(addr => addr.trim()).filter(Boolean);
-const proxies = fs.readFileSync('proxy.txt', 'utf-8').split('\n').map(proxy => proxy.trim()).filter(Boolean);
+let wallets = fs.readFileSync('wallets.txt', 'utf-8').split('\n').filter(Boolean);
+const proxies = fs.readFileSync('proxy.txt', 'utf-8').split('\n').filter(Boolean);
 
 
 const targetUrl = 'https://faucet.gokite.ai/api/sendToken';
@@ -26,19 +19,14 @@ const targetUrl = 'https://faucet.gokite.ai/api/sendToken';
 const headers = {
   'authority': 'faucet.gokite.ai',
   'accept': 'application/json, text/plain, */*',
-  'accept-language': 'en-US,en;q=0.9',
   'content-type': 'application/json',
   'origin': 'https://faucet.gokite.ai',
   'referer': 'https://faucet.gokite.ai/?',
   'sec-ch-ua': '"Not-A.Brand";v="99", "Chromium";v="124"',
   'sec-ch-ua-mobile': '?0',
   'sec-ch-ua-platform': '"Linux"',
-  'sec-fetch-dest': 'empty',
-  'sec-fetch-mode': 'cors',
-  'sec-fetch-site': 'same-origin',
   'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
 };
-
 
 function getProxyAgent(proxy) {
   if (!proxy.startsWith('http')) {
@@ -46,7 +34,6 @@ function getProxyAgent(proxy) {
   }
   return new HttpsProxyAgent(proxy);
 }
-
 
 async function solveCaptcha() {
   const recaptchaV2ProxylessRequest = new RecaptchaV2ProxylessRequest({
@@ -77,8 +64,10 @@ console.log(banner);
     console.log(chalk.yellow(`🚀 Running for address: ${address}`));
 
     while (retryCount < maxRetries) {
+      let proxy = ''; 
+
       try {
-        const proxy = proxies[retryCount % proxies.length];
+        proxy = proxies[retryCount % proxies.length];
         const proxyAgent = getProxyAgent(proxy);
         console.log(chalk.blue(`🌍 Using proxy: ${proxy}`));
 
@@ -103,7 +92,7 @@ console.log(banner);
         break; 
       } catch (error) {
         retryCount++;
-        console.error(chalk.red(`❌ Error for ${address} (Attempt ${retryCount}) using proxy ${proxy}:`), 
+        console.error(chalk.red(`❌ Error for ${address} (Attempt ${retryCount}) using proxy ${proxy || 'Unknown Proxy'}:`), 
                       chalk.red(error.response ? JSON.stringify(error.response.data, null, 2) : error.message));
 
         if (retryCount < maxRetries) {
@@ -118,28 +107,13 @@ console.log(banner);
 
   
   wallets = wallets.filter(addr => !successAddresses.includes(addr));
-
-  console.log(chalk.yellow(`📜 Remaining Wallets: \n${wallets.join('\n')}`)); // Debugging
-
   fs.writeFileSync('wallets.txt', wallets.join('\n'), 'utf-8');
 
-  console.log(chalk.green(`✅ Successfully removed completed addresses from wallets.txt`)); // Debugging
-
-
-  if (successAddresses.length > 0) {
-    const filePath = 'success-address.txt';
-    
-    
-    let fileContent = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
-
   
-    fs.appendFileSync(filePath, (fileContent.trim() ? '\n' : '') + successAddresses.join('\n') + '\n', 'utf-8');
-
-    console.log(chalk.green(`🎉 Successfully saved completed addresses to success-address.txt`));
-  } else {
-    console.log(chalk.yellow(`⚠️ No successful addresses to save.`));
+  if (successAddresses.length > 0) {
+    fs.appendFileSync('success-address.txt', successAddresses.join('\n') + '\n', 'utf-8');
+    console.log(chalk.green('📜 Successfully saved completed addresses! 🎉'));
   }
 }
 
-// Run function
 sendRequests();
